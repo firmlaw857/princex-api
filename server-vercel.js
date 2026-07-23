@@ -455,7 +455,7 @@ setInterval(async()=>{
 },14*60*1000);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
+if (require.main === module) { app.listen(PORT, async () => {
   log(`🚀 PrinceX IQ Server port ${PORT}`);
   log(`📱 Daraja mode: ${IS_SANDBOX?"SANDBOX (sandbox.safaricom.co.ke)":"PRODUCTION (api.safaricom.co.ke)"}`);
   log(`📱 Till: ${DARAJA_TILL}`);
