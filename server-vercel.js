@@ -2190,3 +2190,70 @@ Respond ONLY with this exact JSON (no markdown):
 });
 
 module.exports = app;
+// ============ CTRADER / PEPPERSTONE ============
+const CTRADER_CLIENT_ID     = process.env.CTRADER_CLIENT_ID     || "34564_kvAwGQP6l98aezoF1bzp40f6DDSHqwgFLZDV6yptOpzRa5iPV7";
+const CTRADER_CLIENT_SECRET = process.env.CTRADER_CLIENT_SECRET || process.env.CTRADER_SECRET;
+const CTRADER_TOKEN_URL     = "https://connect.spotware.com/apps/token";
+const CTRADER_API_URL       = "https://live.ctraderapi.com";
+
+// Exchange code for token
+app.post("/ctrader/token", async (req, res) => {
+  const { code, redirect_uri } = req.body;
+  try {
+    const r = await axios.post(CTRADER_TOKEN_URL,
+      `grant_type=authorization_code&code=${code}&redirect_uri=${encodeURIComponent(redirect_uri)}&client_id=${CTRADER_CLIENT_ID}&client_secret=${CTRADER_CLIENT_SECRET}`,
+      { headers:{ "Content-Type":"application/x-www-form-urlencoded" } }
+    );
+    res.json(r.data);
+  } catch(e) {
+    log("cTrader token error: "+e.message);
+    res.json({ error: e.response?.data?.errorCode || e.message });
+  }
+});
+
+// Get accounts
+app.get("/ctrader/accounts", async (req, res) => {
+  const token = req.headers["x-ctrader-token"];
+  if (!token) return res.json({ error:"No token" });
+  try {
+    const r = await axios.get(`https://connect.spotware.com/apps/trading-account`,
+      { headers:{ Authorization:`Bearer ${token}` } }
+    );
+    res.json({ accounts: r.data });
+  } catch(e) {
+    log("cTrader accounts error: "+e.message);
+    res.json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// Get balance
+app.get("/ctrader/balance/:accountId", async (req, res) => {
+  const token = req.headers["x-ctrader-token"];
+  const { accountId } = req.params;
+  try {
+    const r = await axios.get(
+      `https://connect.spotware.com/apps/trading-account/${accountId}`,
+      { headers:{ Authorization:`Bearer ${token}` } }
+    );
+    res.json(r.data);
+  } catch(e) {
+    res.json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// Place trade
+app.post("/ctrader/trade", async (req, res) => {
+  const token = req.headers["x-ctrader-token"];
+  const { accountId, symbol, direction, volume } = req.body;
+  try {
+    const r = await axios.post(
+      `https://connect.spotware.com/apps/trading-account/${accountId}/order`,
+      { symbolName:symbol, orderType:"MARKET", tradeSide:direction, volume },
+      { headers:{ Authorization:`Bearer ${token}`, "Content-Type":"application/json" } }
+    );
+    res.json({ success:true, orderId: r.data.orderId, ...r.data });
+  } catch(e) {
+    log("cTrader trade error: "+e.message);
+    res.json({ error: e.response?.data?.message || e.message });
+  }
+});
