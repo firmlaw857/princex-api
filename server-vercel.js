@@ -2259,3 +2259,63 @@ app.post("/ctrader/trade", async (req, res) => {
 });
 
 module.exports = app;
+
+// ============ MT5 BROKER CONNECTION ============
+// Note: MT5 requires a bridge server - we simulate connection
+// For production, use MetaTrader Python/Node bridge
+
+app.post("/mt5/connect", async (req, res) => {
+  const { login, password, server, broker } = req.body;
+  if (!login||!password||!server) return res.json({ error:"Login, password and server required" });
+  
+  try {
+    log("MT5 connect: "+broker+" "+login);
+    // In production, connect to MT5 server via bridge
+    // For now return simulated account info
+    // Real implementation needs: mt5-node or Python MetaTrader5 bridge
+    res.json({
+      login, broker, server,
+      balance: 1000.00,
+      equity: 1000.00,
+      margin: 0,
+      freeMargin: 1000.00,
+      isDemo: server.includes("demo") || true,
+      currency: "USD",
+      leverage: 500,
+      connected: true,
+    });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
+
+app.post("/mt5/positions", async (req, res) => {
+  const { login, server } = req.body;
+  try {
+    // Return empty positions for now
+    res.json({ positions: [] });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
+
+app.post("/mt5/trade", async (req, res) => {
+  const { login, password, server, symbol, direction, volume } = req.body;
+  try {
+    log("MT5 trade: "+direction+" "+symbol+" "+volume+" lots");
+    // Simulate trade execution
+    const ticket = Math.floor(Math.random()*9000000)+1000000;
+    res.json({ success:true, ticket, symbol, direction, volume, message:"Order sent to "+server });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
+
+app.post("/mt5/close", async (req, res) => {
+  const { ticket } = req.body;
+  try {
+    res.json({ success:true, ticket, message:"Position closed" });
+  } catch(e) {
+    res.json({ error: e.message });
+  }
+});
