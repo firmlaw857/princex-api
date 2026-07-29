@@ -2257,3 +2257,5 @@ app.post("/ctrader/trade", async (req, res) => {
     res.json({ error: e.response?.data?.message || e.message });
   }
 });
+
+module.exports = app;
