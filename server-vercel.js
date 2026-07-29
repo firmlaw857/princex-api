@@ -22,7 +22,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || "";
 const ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || "PrinceX IQFX_ADMIN_2026_PRINCEX";
 const TWELVE_KEY = process.env.TWELVE_KEY || "62e0549bbdc04d76a224157e22da6bbd";
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://princex-iq.vercel.app";
-const ONESIGNAL_APP_ID = "9b174534-5638-46d0-9efb-071db011b02c";
+const ONESIGNAL_APP_ID = "process.env.ONESIGNAL_KEY";
 const ONESIGNAL_API_KEY = process.env.ONESIGNAL_API_KEY || "os_v2_app_tmlukncwhbdnbhx3a4o3aenqft7oc4a2664uo5nv3expvl2rh7arc4u3iwg5een2ybhtoxqvdslrb5zncgrhu4fzjrdt7lljm2ojtcq";
 
 // ============ DARAJA CONFIG ============
