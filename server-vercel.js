@@ -462,7 +462,7 @@ if (require.main === module) { app.listen(PORT, async () => {
   try { await getDarajaToken(); log("✅ Daraja ready"); }
   catch(e) { log(`⚠ Daraja token failed: ${e.message}`); }
   // setTimeout(runAnalysis, 15000);
-});
+}); }
 
 
 
