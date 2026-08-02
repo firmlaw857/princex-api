@@ -2191,7 +2191,7 @@ Respond ONLY with this exact JSON (no markdown):
 
 module.exports = app;
 // ============ CTRADER / PEPPERSTONE ============
-const CTRADER_CLIENT_ID     = process.env.CTRADER_CLIENT_ID     || "34564_kvAwGQP6l98aezoF1bzp40f6DDSHqwgFLZDV6yptOpzRa5iPV7";
+const CTRADER_CLIENT_ID     = process.env.CTRADER_CLIENT_ID     || "process.env.CTRADER_CLIENT_ID";
 const CTRADER_CLIENT_SECRET = process.env.CTRADER_CLIENT_SECRET || process.env.CTRADER_SECRET;
 const CTRADER_TOKEN_URL     = "https://connect.spotware.com/apps/token";
 const CTRADER_API_URL       = "https://live.ctraderapi.com";
