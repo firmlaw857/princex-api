@@ -2200,14 +2200,16 @@ const CTRADER_API_URL       = "https://live.ctraderapi.com";
 app.post("/ctrader/token", async (req, res) => {
   const { code, redirect_uri } = req.body;
   try {
-    const r = await axios.post(CTRADER_TOKEN_URL,
+    const r = await axios.post(
+      "https://connect.spotware.com/apps/token",
       `grant_type=authorization_code&code=${code}&redirect_uri=${encodeURIComponent(redirect_uri)}&client_id=${CTRADER_CLIENT_ID}&client_secret=${CTRADER_CLIENT_SECRET}`,
       { headers:{ "Content-Type":"application/x-www-form-urlencoded" } }
     );
+    log("cTrader token OK");
     res.json(r.data);
   } catch(e) {
-    log("cTrader token error: "+e.message);
-    res.json({ error: e.response?.data?.errorCode || e.message });
+    log("cTrader token error: "+e.message+" "+JSON.stringify(e.response?.data));
+    res.json({ error: e.response?.data?.errorCode || e.response?.data?.description || e.message });
   }
 });
 
@@ -2216,12 +2218,14 @@ app.get("/ctrader/accounts", async (req, res) => {
   const token = req.headers["x-ctrader-token"];
   if (!token) return res.json({ error:"No token" });
   try {
-    const r = await axios.get(`https://connect.spotware.com/apps/trading-account`,
+    const r = await axios.get(
+      "https://connect.spotware.com/apps/tradingaccounts",
       { headers:{ Authorization:`Bearer ${token}` } }
     );
-    res.json({ accounts: r.data });
+    log("cTrader accounts: "+JSON.stringify(r.data).slice(0,100));
+    res.json({ accounts: Array.isArray(r.data) ? r.data : [r.data] });
   } catch(e) {
-    log("cTrader accounts error: "+e.message);
+    log("cTrader accounts error: "+e.message+" "+JSON.stringify(e.response?.data));
     res.json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2232,7 +2236,7 @@ app.get("/ctrader/balance/:accountId", async (req, res) => {
   const { accountId } = req.params;
   try {
     const r = await axios.get(
-      `https://connect.spotware.com/apps/trading-account/${accountId}`,
+      `https://connect.spotware.com/apps/tradingaccounts/${accountId}`,
       { headers:{ Authorization:`Bearer ${token}` } }
     );
     res.json(r.data);
@@ -2247,11 +2251,11 @@ app.post("/ctrader/trade", async (req, res) => {
   const { accountId, symbol, direction, volume } = req.body;
   try {
     const r = await axios.post(
-      `https://connect.spotware.com/apps/trading-account/${accountId}/order`,
+      `https://connect.spotware.com/apps/tradingaccounts/${accountId}/orders`,
       { symbolName:symbol, orderType:"MARKET", tradeSide:direction, volume },
       { headers:{ Authorization:`Bearer ${token}`, "Content-Type":"application/json" } }
     );
-    res.json({ success:true, orderId: r.data.orderId, ...r.data });
+    res.json({ success:true, orderId: r.data.orderId||r.data.id, ...r.data });
   } catch(e) {
     log("cTrader trade error: "+e.message);
     res.json({ error: e.response?.data?.message || e.message });
