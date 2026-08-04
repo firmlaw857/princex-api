@@ -2196,69 +2196,78 @@ const CTRADER_CLIENT_SECRET = process.env.CTRADER_CLIENT_SECRET || process.env.C
 const CTRADER_TOKEN_URL     = "https://connect.spotware.com/apps/token";
 const CTRADER_API_URL       = "https://live.ctraderapi.com";
 
-// Exchange code for token
+// ── cTrader correct API endpoints ──
+// Token exchange
 app.post("/ctrader/token", async (req, res) => {
   const { code, redirect_uri } = req.body;
   try {
     const r = await axios.post(
       "https://connect.spotware.com/apps/token",
-      `grant_type=authorization_code&code=${code}&redirect_uri=${encodeURIComponent(redirect_uri)}&client_id=${CTRADER_CLIENT_ID}&client_secret=${CTRADER_CLIENT_SECRET}`,
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri,
+        client_id: CTRADER_CLIENT_ID,
+        client_secret: CTRADER_CLIENT_SECRET,
+      }).toString(),
       { headers:{ "Content-Type":"application/x-www-form-urlencoded" } }
     );
-    log("cTrader token OK");
+    log("cTrader token OK: "+JSON.stringify(r.data).slice(0,100));
     res.json(r.data);
   } catch(e) {
-    log("cTrader token error: "+e.message+" "+JSON.stringify(e.response?.data));
-    res.json({ error: e.response?.data?.errorCode || e.response?.data?.description || e.message });
+    const errData = e.response?.data;
+    log("cTrader token error: "+JSON.stringify(errData));
+    res.json({ error: errData?.errorCode || errData?.description || e.message });
   }
 });
 
-// Get accounts
+// Get accounts - correct endpoint
 app.get("/ctrader/accounts", async (req, res) => {
   const token = req.headers["x-ctrader-token"];
-  if (!token) return res.json({ error:"No token" });
+  if (!token) return res.json({ error:"No token provided" });
   try {
     const r = await axios.get(
-      "https://connect.spotware.com/apps/tradingaccounts",
-      { headers:{ Authorization:`Bearer ${token}` } }
+      `https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts?token=${token}`
     );
-    log("cTrader accounts: "+JSON.stringify(r.data).slice(0,100));
-    res.json({ accounts: Array.isArray(r.data) ? r.data : [r.data] });
+    log("cTrader accounts OK: "+JSON.stringify(r.data).slice(0,100));
+    const accounts = Array.isArray(r.data) ? r.data : (r.data.data||[r.data]);
+    res.json({ accounts });
   } catch(e) {
-    log("cTrader accounts error: "+e.message+" "+JSON.stringify(e.response?.data));
-    res.json({ error: e.response?.data?.message || e.message });
+    const errData = e.response?.data;
+    log("cTrader accounts error: "+JSON.stringify(errData));
+    res.json({ error: errData?.errorCode || errData?.description || e.message });
   }
 });
 
-// Get balance
+// Get account balance
 app.get("/ctrader/balance/:accountId", async (req, res) => {
   const token = req.headers["x-ctrader-token"];
   const { accountId } = req.params;
   try {
     const r = await axios.get(
-      `https://connect.spotware.com/apps/tradingaccounts/${accountId}`,
-      { headers:{ Authorization:`Bearer ${token}` } }
+      `https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts/${accountId}?token=${token}`
     );
     res.json(r.data);
   } catch(e) {
-    res.json({ error: e.response?.data?.message || e.message });
+    res.json({ error: e.response?.data?.errorCode || e.message });
   }
 });
 
-// Place trade
+// Place market order
 app.post("/ctrader/trade", async (req, res) => {
   const token = req.headers["x-ctrader-token"];
   const { accountId, symbol, direction, volume } = req.body;
   try {
     const r = await axios.post(
-      `https://connect.spotware.com/apps/tradingaccounts/${accountId}/orders`,
+      `https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts/${accountId}/orders?token=${token}`,
       { symbolName:symbol, orderType:"MARKET", tradeSide:direction, volume },
-      { headers:{ Authorization:`Bearer ${token}`, "Content-Type":"application/json" } }
+      { headers:{ "Content-Type":"application/json" } }
     );
-    res.json({ success:true, orderId: r.data.orderId||r.data.id, ...r.data });
+    log("cTrader trade OK: "+JSON.stringify(r.data).slice(0,100));
+    res.json({ success:true, orderId:r.data.orderId||r.data.id, ...r.data });
   } catch(e) {
-    log("cTrader trade error: "+e.message);
-    res.json({ error: e.response?.data?.message || e.message });
+    log("cTrader trade error: "+e.response?.data?.errorCode||e.message);
+    res.json({ error: e.response?.data?.errorCode || e.message });
   }
 });
 
