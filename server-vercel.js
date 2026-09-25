@@ -2335,7 +2335,7 @@ app.post("/mt5/close", async (req, res) => {
 
 // ─── DERIV OAuth Token Exchange ───────────────────────────────────────────────
 const DERIV_CLIENT_ID = "33UkT2qA409Ez6jqg3tW0";
-const DERIV_REDIRECT_URI = "https://princex-iq.vercel.app/callback";
+const DERIV_REDIRECT_URI = "https://princex-iq.vercel.app";
 
 app.post("/deriv/token", async (req, res) => {
   const { code, code_verifier } = req.body;
