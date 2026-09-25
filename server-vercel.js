@@ -2332,3 +2332,61 @@ app.post("/mt5/close", async (req, res) => {
     res.json({ error: e.message });
   }
 });
+
+// ─── DERIV OAuth Token Exchange ───────────────────────────────────────────────
+const DERIV_CLIENT_ID = "33UkT2qA409Ez6jqg3tW0";
+const DERIV_REDIRECT_URI = "https://princex-iq.vercel.app/callback";
+
+app.post("/deriv/token", async (req, res) => {
+  const { code, code_verifier } = req.body;
+  if (!code || !code_verifier) return res.status(400).json({ error: "Missing code or verifier" });
+  try {
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: DERIV_CLIENT_ID,
+      code,
+      code_verifier,
+      redirect_uri: DERIV_REDIRECT_URI,
+    });
+    const r = await fetch("https://auth.deriv.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const data = await r.json();
+    if (!r.ok) return res.status(400).json({ error: data.error_description || "Token exchange failed" });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/deriv/accounts", async (req, res) => {
+  const token = req.headers["authorization"];
+  if (!token) return res.status(401).json({ error: "No token" });
+  try {
+    const r = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+      headers: { Authorization: token }
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/deriv/otp/:accountId", async (req, res) => {
+  const token = req.headers["authorization"];
+  const { accountId } = req.params;
+  if (!token) return res.status(401).json({ error: "No token" });
+  try {
+    const r = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
