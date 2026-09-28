@@ -2518,7 +2518,7 @@ app.post("/ctrader/exchange-token", async (req, res) => {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: "https://princex-iq.vercel.app",
+        redirect_uri: "https://princex-iq.vercel.app/callback",
         client_id: CTRADER_CLIENT_ID,
         client_secret: CTRADER_SECRET,
       }).toString()
