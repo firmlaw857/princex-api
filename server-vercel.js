@@ -2521,10 +2521,68 @@ app.get("/ctrader/accounts", async (req, res) => {
   const token = req.headers["x-access-token"];
   if (!token) return res.status(401).json({ error: "No token" });
   try {
-    const r = await fetch(`https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts?token=${token}`);
+    const r = await fetch(`https://connect.spotware.com/apps/34731/tradingaccounts?token=${token}`);
     const data = await r.json();
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ─── Get accounts via Protobuf ──────────────────────────────────────────────
+app.get("/ctrader/accounts/proto", async (req, res) => {
+  const token = req.headers["x-access-token"];
+  if (!token) return res.status(401).json({ error: "No token" });
+  try {
+    const accounts = await ctGetAccounts(token);
+    res.json({ data: accounts });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function ctGetAccounts(accessToken) {
+  return new Promise((resolve, reject) => {
+    const sock = new net.Socket();
+    const timeout = setTimeout(() => { sock.destroy(); reject(new Error("Timeout")); }, 15000);
+    let buf = Buffer.alloc(0);
+    let step = "appAuth";
+
+    sock.connect(5035, "live.ctraderapi.com", () => {
+      const msg = JSON.stringify({ clientId: CTRADER_CLIENT_ID, clientSecret: CTRADER_SECRET, payloadType: 2100 });
+      sock.write(buildProtoMsg(2100, Buffer.from(msg)));
+    });
+
+    sock.on("data", chunk => {
+      buf = Buffer.concat([buf, chunk]);
+      while (buf.length >= 8) {
+        const length = buf.readUInt32BE(0);
+        if (buf.length < 4 + length) break;
+        const payloadType = buf.readUInt32BE(4);
+        const payload = buf.slice(8, 4 + length);
+        buf = buf.slice(4 + length);
+
+        if (step === "appAuth" && payloadType === 2101) {
+          // App auth success → get accounts
+          const msg2 = JSON.stringify({ accessToken, payloadType: 2104 });
+          sock.write(buildProtoMsg(2104, Buffer.from(msg2)));
+          step = "getAccounts";
+        } else if (step === "getAccounts" && payloadType === 2105) {
+          clearTimeout(timeout);
+          sock.destroy();
+          try {
+            const data = JSON.parse(payload.toString());
+            resolve(data.ctidTraderAccount || []);
+          } catch(e) { resolve([]); }
+        } else if (payloadType === 2142) {
+          clearTimeout(timeout);
+          sock.destroy();
+          reject(new Error("cTrader error: " + payload.toString()));
+        }
+      }
+    });
+
+    sock.on("error", e => { clearTimeout(timeout); reject(e); });
+    sock.on("close", () => { clearTimeout(timeout); });
+  });
+}
