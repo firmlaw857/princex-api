@@ -2390,3 +2390,155 @@ app.post("/deriv/otp/:accountId", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ─── cTrader Open API Auto-Trade Engine ────────────────────────────────────
+const net = require("net");
+
+const CTRADER_HOST_LIVE = "live.ctraderapi.com";
+const CTRADER_HOST_DEMO = "demo.ctraderapi.com";
+const CTRADER_PORT = 5035;
+
+// Protobuf message builder (raw TCP framing for cTrader Open API)
+function buildProtoMsg(payloadType, payload) {
+  const payloadTypeBuf = Buffer.alloc(4);
+  payloadTypeBuf.writeUInt32BE(payloadType);
+  const data = typeof payload === "string" ? Buffer.from(payload) : payload;
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(4 + data.length);
+  return Buffer.concat([length, payloadTypeBuf, data]);
+}
+
+function parseProtoMsg(buf) {
+  if (buf.length < 8) return null;
+  const length = buf.readUInt32BE(0);
+  const payloadType = buf.readUInt32BE(4);
+  const payload = buf.slice(8, 4 + length);
+  return { payloadType, payload, totalLen: 4 + length };
+}
+
+// Connect to cTrader, authorize, place trade, disconnect
+async function ctPlaceTrade({ accessToken, accountId, symbol, side, volume, sl, tp, isDemo }) {
+  return new Promise((resolve, reject) => {
+    const host = isDemo ? CTRADER_HOST_DEMO : CTRADER_HOST_LIVE;
+    const sock = new net.Socket();
+    const timeout = setTimeout(() => { sock.destroy(); reject(new Error("Timeout")); }, 15000);
+    let buf = Buffer.alloc(0);
+    let step = "connect";
+    let result = null;
+
+    sock.connect(CTRADER_PORT, host, () => {
+      // Step 1: ProtoOAApplicationAuthReq (payloadType=2100)
+      const appAuth = JSON.stringify({
+        clientId: CTRADER_CLIENT_ID,
+        clientSecret: CTRADER_SECRET,
+        payloadType: 2100
+      });
+      sock.write(buildProtoMsg(2100, Buffer.from(appAuth)));
+      step = "appAuth";
+    });
+
+    sock.on("data", (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      while (buf.length >= 8) {
+        const msg = parseProtoMsg(buf);
+        if (!msg) break;
+        buf = buf.slice(msg.totalLen);
+        const pt = msg.payloadType;
+
+        if (step === "appAuth" && pt === 2101) {
+          // App auth success → account auth
+          const accAuth = JSON.stringify({
+            ctidTraderAccountId: accountId,
+            accessToken,
+            payloadType: 2102
+          });
+          sock.write(buildProtoMsg(2102, Buffer.from(accAuth)));
+          step = "accAuth";
+        } else if (step === "accAuth" && pt === 2103) {
+          // Account auth success → place order
+          const order = JSON.stringify({
+            ctidTraderAccountId: accountId,
+            symbolName: symbol,
+            orderType: "MARKET",
+            tradeSide: side === "BUY" ? "BUY" : "SELL",
+            volume: Math.round(volume * 100), // cents
+            stopLoss: sl || undefined,
+            takeProfit: tp || undefined,
+            payloadType: 2106
+          });
+          sock.write(buildProtoMsg(2106, Buffer.from(order)));
+          step = "order";
+        } else if (step === "order" && (pt === 2107 || pt === 2108)) {
+          // Order execution response
+          result = { success: pt === 2107, payloadType: pt, raw: msg.payload.toString() };
+          clearTimeout(timeout);
+          sock.destroy();
+          if (result.success) resolve(result);
+          else reject(new Error("Order failed: " + result.raw));
+        } else if (pt === 2142) {
+          // Error response
+          clearTimeout(timeout);
+          sock.destroy();
+          reject(new Error("cTrader error: " + msg.payload.toString()));
+        }
+      }
+    });
+
+    sock.on("error", (e) => { clearTimeout(timeout); reject(e); });
+    sock.on("close", () => {
+      clearTimeout(timeout);
+      if (!result) reject(new Error("Connection closed before trade"));
+    });
+  });
+}
+
+// ─── cTrader Trade Route ────────────────────────────────────────────────────
+app.post("/ctrader/autotrade", async (req, res) => {
+  const { accessToken, accountId, symbol, side, volume, sl, tp, isDemo } = req.body;
+  if (!accessToken || !accountId || !symbol || !side) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  try {
+    const result = await ctPlaceTrade({ accessToken, accountId, symbol, side,
+      volume: volume || 0.01, sl, tp, isDemo: !!isDemo });
+    res.json({ success: true, result });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── cTrader Token Exchange ─────────────────────────────────────────────────
+app.post("/ctrader/exchange-token", async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: "Missing code" });
+  try {
+    const r = await fetch("https://connect.spotware.com/apps/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: "https://princex-iq.vercel.app",
+        client_id: CTRADER_CLIENT_ID,
+        client_secret: CTRADER_SECRET,
+      }).toString()
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Get cTrader Accounts ───────────────────────────────────────────────────
+app.get("/ctrader/accounts", async (req, res) => {
+  const token = req.headers["x-access-token"];
+  if (!token) return res.status(401).json({ error: "No token" });
+  try {
+    const r = await fetch(`https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts?token=${token}`);
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
