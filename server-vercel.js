@@ -2223,22 +2223,7 @@ app.post("/ctrader/token", async (req, res) => {
 });
 
 // Get accounts - correct endpoint
-app.get("/ctrader/accounts", async (req, res) => {
-  const token = req.headers["x-ctrader-token"];
-  if (!token) return res.json({ error:"No token provided" });
-  try {
-    const r = await axios.get(
-      `https://connect.spotware.com/apps/${CTRADER_CLIENT_ID}/tradingaccounts?token=${token}`
-    );
-    log("cTrader accounts OK: "+JSON.stringify(r.data).slice(0,100));
-    const accounts = Array.isArray(r.data) ? r.data : (r.data.data||[r.data]);
-    res.json({ accounts });
-  } catch(e) {
-    const errData = e.response?.data;
-    log("cTrader accounts error: "+JSON.stringify(errData));
-    res.json({ error: errData?.errorCode || errData?.description || e.message });
-  }
-});
+// duplicate ctrader/accounts removed
 
 // Get account balance
 app.get("/ctrader/balance/:accountId", async (req, res) => {
