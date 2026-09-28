@@ -2193,6 +2193,7 @@ module.exports = app;
 // ============ CTRADER / PEPPERSTONE ============
 const CTRADER_CLIENT_ID     = process.env.CTRADER_CLIENT_ID     || "process.env.CTRADER_CLIENT_ID";
 const CTRADER_CLIENT_SECRET = process.env.CTRADER_CLIENT_SECRET || process.env.CTRADER_SECRET || "8tY61GHnm4ONzu04SMTvo9bleB3UDkqyaNBl6PyHl3beJ00Pfx";
+const CTRADER_SECRET = CTRADER_CLIENT_SECRET;
 const CTRADER_TOKEN_URL     = "https://connect.spotware.com/apps/token";
 const CTRADER_API_URL       = "https://live.ctraderapi.com";
 
