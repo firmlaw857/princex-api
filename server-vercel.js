@@ -2332,7 +2332,7 @@ app.post("/deriv/token", async (req, res) => {
       client_id: DERIV_CLIENT_ID,
       code,
       code_verifier,
-      redirect_uri: DERIV_REDIRECT_URI,
+      redirect_uri: "https://princex-iq.vercel.app",
     });
     const r = await fetch("https://auth.deriv.com/oauth2/token", {
       method: "POST",
