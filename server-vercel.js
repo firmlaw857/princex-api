@@ -2325,7 +2325,8 @@ const DERIV_REDIRECT_URI = "https://princex-iq.vercel.app";
 
 app.post("/deriv/token", async (req, res) => {
   const { code, code_verifier } = req.body;
-  if (!code || !code_verifier) return res.status(400).json({ error: "Missing code or verifier" });
+  console.log("DERIV TOKEN REQ:", { code: code?.slice(0,20), code_verifier: code_verifier?.slice(0,20), hasVerifier: !!code_verifier });
+  if (!code) return res.status(400).json({ error: "Missing code" });
   try {
     const params = new URLSearchParams({
       grant_type: "authorization_code",
